@@ -109,4 +109,45 @@ describe QRCode::Encoder::Util do
 		# Check that our method gives the same result
 		expect(QRCode::Encoder::Util.demerit_points_4_dark_ratio(modules)).to be_within(0.001).of(4)
 	end
+	
+	it "calculates demerit points for 1 same color" do
+		# 3x3 of one color: only the center has more than 5 equal neighbours (8).
+		# Expected: 3 + 8 - 5 = 6
+		modules = Array.new(3){Array.new(3, false)}
+		expect(QRCode::Encoder::Util.demerit_points_1_same_color(modules)).to be == 6
+		
+		# 4x4 of one color: the 4 inner modules have 8 equal neighbours, the edges at most 5.
+		# Expected: 4 * (3 + 8 - 5) = 24
+		modules = Array.new(4){Array.new(4, true)}
+		expect(QRCode::Encoder::Util.demerit_points_1_same_color(modules)).to be == 24
+		
+		# Checkerboard: no module has more than 4 equal neighbours.
+		modules = Array.new(5){|row| Array.new(5){|col| (row + col).even?}}
+		expect(QRCode::Encoder::Util.demerit_points_1_same_color(modules)).to be == 0
+	end
+	
+	it "calculates demerit points for 1 same color like a plain neighbour count" do
+		reference = lambda do |modules|
+			count = modules.size
+			
+			count.times.sum do |row|
+				count.times.sum do |col|
+					neighbours = [-1, 0, 1].product([-1, 0, 1]) - [[0, 0]]
+					same_count = neighbours.count do |r, c|
+						(row + r).between?(0, count - 1) && (col + c).between?(0, count - 1) && modules[row + r][col + c] == modules[row][col]
+					end
+					
+					same_count > 5 ? QRCode::Encoder::Util::DEMERIT_POINTS_1 + same_count - 5 : 0
+				end
+			end
+		end
+		
+		random = Random.new(1)
+		[1, 2, 21, 25, 57].each do |size|
+			10.times do
+				modules = Array.new(size){Array.new(size){random.rand < 0.6}}
+				expect(QRCode::Encoder::Util.demerit_points_1_same_color(modules)).to be == reference.call(modules)
+			end
+		end
+	end
 end

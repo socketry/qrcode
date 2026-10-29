@@ -176,32 +176,50 @@ module QRCode
 				demerit_points
 			end
 			
+			# Counts, for every module, how many of its up to 8 neighbours have the same color, and adds demerit points when more than 5 do.
+			#
+			# This runs for each of the 8 mask patterns of every code, so it is written with plain loops and direct row access rather than ranges and blocks.
 			def self.demerit_points_1_same_color(modules)
 				demerit_points = 0
 				module_count = modules.size
 				
 				# level1
-				(0...module_count).each do |row|
-					(0...module_count).each do |col|
+				row = 0
+				while row < module_count
+					above = row > 0 ? modules[row - 1] : nil
+					current = modules[row]
+					below = row + 1 < module_count ? modules[row + 1] : nil
+					
+					col = 0
+					while col < module_count
+						dark = current[col]
+						left = col > 0
+						right = col + 1 < module_count
 						same_count = 0
-						dark = modules[row][col]
 						
-						(-1..1).each do |r|
-							next if row + r < 0 || module_count <= row + r
-							
-							(-1..1).each do |c|
-								next if col + c < 0 || module_count <= col + c
-								next if r == 0 && c == 0
-								if dark == modules[row + r][col + c]
-									same_count += 1
-								end
-							end
+						if above
+							same_count += 1 if left && above[col - 1] == dark
+							same_count += 1 if above[col] == dark
+							same_count += 1 if right && above[col + 1] == dark
+						end
+						
+						same_count += 1 if left && current[col - 1] == dark
+						same_count += 1 if right && current[col + 1] == dark
+						
+						if below
+							same_count += 1 if left && below[col - 1] == dark
+							same_count += 1 if below[col] == dark
+							same_count += 1 if right && below[col + 1] == dark
 						end
 						
 						if same_count > 5
 							demerit_points += (DEMERIT_POINTS_1 + same_count - 5)
 						end
+						
+						col += 1
 					end
+					
+					row += 1
 				end
 				
 				demerit_points
